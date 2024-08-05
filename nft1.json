@@ -1,0 +1,23 @@
+{
+    "image": "https://raw.githubusercontent.com/opcheese/tactexps/main/skyrook.png",
+    "name": "Skyrook",
+    "description": "SyncCorp rook",
+    "attributes": [
+        {
+            "trait_type": "Color",
+            "value": "Blue"
+        },
+        {
+            "trait_type": "Steps",
+            "value": "3"
+        },
+        {
+            "trait_type": "Background",
+            "value": "12"
+        },
+        {
+            "trait_type": "Prompt",
+            "value": "Clouds in form of a rook"
+        }
+    ]
+}
