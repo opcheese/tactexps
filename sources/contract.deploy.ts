@@ -1,15 +1,17 @@
 import * as fs from "fs";
 import * as path from "path";
 import { Address, contractAddress } from "@ton/core";
-import { SampleTactContract } from "./output/sample_SampleTactContract";
+import { NftCollection } from "./output/nft_NftCollection";
 import { prepareTactDeployment } from "@tact-lang/deployer";
+import { createOffchainContent } from "./helpers";
 
 (async () => {
     // Parameters
     let testnet = true;
-    let packageName = "sample_SampleTactContract.pkg";
-    let owner = Address.parse("kQBM7QssP28PhrctDOyd47_zpFfDiQvv5V9iXizNopb1d2LB");
-    let init = await SampleTactContract.init(owner);
+    let packageName = "nft_NftCollection.pkg";
+    let owner = Address.parse("0QCNGf2fxCJx7sFH83JUayIFh9Y5a9KG8rG-6wDV1r1gW_ij");
+    let content = createOffchainContent("https://raw.githubusercontent.com/opcheese/tactexps/main/collection.json");
+    let init = await NftCollection.init(owner, content, owner, 21n, 1000n);
 
     // Load required data
     let address = contractAddress(0, init);

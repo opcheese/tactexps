@@ -1,168 +1,47 @@
-import { toNano } from "@ton/core";
+import { beginCell, toNano } from "@ton/core";
 import { ContractSystem } from "@tact-lang/emulator";
-import { SampleTactContract } from "./output/sample_SampleTactContract";
+import { NFTItem } from "./output/nft_NFTItem";
+import { inspect } from "util";
+import exp from "constants";
 
 describe("contract", () => {
-    it("should deploy correctly", async () => {
-        // Create ContractSystem and deploy contract
-        let system = await ContractSystem.create();
-        let owner = system.treasure("owner");
-        let nonOwner = system.treasure("non-owner");
-        let contract = system.open(await SampleTactContract.fromInit(owner.address));
-        system.name(contract.address, "main");
-        let track = system.track(contract);
-        await contract.send(owner, { value: toNano(1) }, { $$type: "Deploy", queryId: 0n });
-        await system.run();
-        expect(track.collect()).toMatchInlineSnapshot(`
-            [
-              {
-                "$seq": 0,
-                "events": [
-                  {
-                    "$type": "deploy",
-                  },
-                  {
-                    "$type": "received",
-                    "message": {
-                      "body": {
-                        "type": "known",
-                        "value": {
-                          "$$type": "Deploy",
-                          "queryId": 0n,
-                        },
-                      },
-                      "bounce": true,
-                      "from": "@treasure(owner)",
-                      "to": "@main",
-                      "type": "internal",
-                      "value": "1",
-                    },
-                  },
-                  {
-                    "$type": "processed",
-                    "gasUsed": 8040n,
-                  },
-                  {
-                    "$type": "sent",
-                    "messages": [
-                      {
-                        "body": {
-                          "type": "known",
-                          "value": {
-                            "$$type": "DeployOk",
-                            "queryId": 0n,
-                          },
-                        },
-                        "bounce": false,
-                        "from": "@main",
-                        "to": "@treasure(owner)",
-                        "type": "internal",
-                        "value": "0.990764",
-                      },
-                    ],
-                  },
-                ],
-              },
-            ]
-        `);
+  it("should deploy correctly", async () => {
+    let system = await ContractSystem.create();
+    let owner = system.treasure("owner");
+    let master = system.treasure("master");
+    let nftContract = system.open(await NFTItem.fromInit(master.address, 0n, beginCell().storeUint(2, 8).endCell(), owner.address, master.address, 5n, 100n));
 
-        // Check counter
-        expect(await contract.getCounter()).toEqual(0n);
+    let nft_tracker = system.track(nftContract.address);
 
-        // Increment counter
-        await contract.send(owner, { value: toNano(1) }, "increment");
-        await system.run();
-        expect(track.collect()).toMatchInlineSnapshot(`
-            [
-              {
-                "$seq": 1,
-                "events": [
-                  {
-                    "$type": "received",
-                    "message": {
-                      "body": {
-                        "text": "increment",
-                        "type": "text",
-                      },
-                      "bounce": true,
-                      "from": "@treasure(owner)",
-                      "to": "@main",
-                      "type": "internal",
-                      "value": "1",
-                    },
-                  },
-                  {
-                    "$type": "processed",
-                    "gasUsed": 8176n,
-                  },
-                  {
-                    "$type": "sent",
-                    "messages": [
-                      {
-                        "body": {
-                          "text": "incremented",
-                          "type": "text",
-                        },
-                        "bounce": true,
-                        "from": "@main",
-                        "to": "@treasure(owner)",
-                        "type": "internal",
-                        "value": "0.990604",
-                      },
-                    ],
-                  },
-                ],
-              },
-            ]
-        `);
+    await nftContract.send(master, { value: toNano(0.1) }, { $$type: "Deploy", queryId: 0n });
+    await system.run();
 
-        // Check counter
-        expect(await contract.getCounter()).toEqual(1n);
+    let nft_events = nft_tracker.collect();
+    console.log(inspect(nft_events, true, null, true));
 
-        // Non-owner
-        await contract.send(nonOwner, { value: toNano(1) }, "increment");
-        await system.run();
-        expect(track.collect()).toMatchInlineSnapshot(`
-            [
-              {
-                "$seq": 2,
-                "events": [
-                  {
-                    "$type": "received",
-                    "message": {
-                      "body": {
-                        "text": "increment",
-                        "type": "text",
-                      },
-                      "bounce": true,
-                      "from": "@treasure(non-owner)",
-                      "to": "@main",
-                      "type": "internal",
-                      "value": "1",
-                    },
-                  },
-                  {
-                    "$type": "failed",
-                    "errorCode": 4429,
-                    "errorMessage": "Invalid sender",
-                  },
-                  {
-                    "$type": "sent-bounced",
-                    "message": {
-                      "body": {
-                        "cell": "x{FFFFFFFF00000000696E6372656D656E74}",
-                        "type": "cell",
-                      },
-                      "bounce": false,
-                      "from": "@main",
-                      "to": "@treasure(non-owner)",
-                      "type": "internal",
-                      "value": "0.995112",
-                    },
-                  },
-                ],
-              },
-            ]
-        `);
+    let result = await nftContract.getGetNftData();
+    expect(result.deployed).toBeTruthy();
+    expect(result.index).toEqual(0n);
+    expect(result.collection.equals(master.address)).toBeTruthy();
+    expect(result.owner.equals(owner.address)).toBeTruthy();
+    expect(result.content.toBoc()).toEqual(beginCell().storeUint(2, 8).endCell().toBoc());
+
+
+    let owner2 = system.treasure("owner2");
+    await nftContract.send(owner, { value: toNano(1) }, {
+      $$type: "NftTransfer", query_id: 1n, new_owner: owner2.address, response_destination: owner.address,
+      custom_payload: beginCell().storeUint(0, 32).storeStringTail("Test message 1").endCell(),
+      forward_amount: toNano(0.05),
+      forward_payload: beginCell().storeUint(0, 32).storeStringTail("Test message 2").endCell()
     });
+    await system.run();
+
+    let owner_events = nft_tracker.collect();
+    console.log(inspect(owner_events, true, null, true));
+
+    result = await nftContract.getGetNftData();
+
+    expect(result.owner.equals(owner2.address)).toBeTruthy();
+
+  });
 });
